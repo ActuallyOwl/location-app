@@ -53,8 +53,11 @@
       const lat = position.coords.latitude.toFixed(5);
       const lon = position.coords.longitude.toFixed(5);
 
-      // Get the address
-      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, {
+        headers: {
+          "User-Agent": "jenson.github.io/location-app"
+        }
+      })
         .then(res => res.json())
         .then(data => {
           const address = data.display_name || "Unknown location";
@@ -81,7 +84,7 @@
               longitude: lon,
               address: address
             }),
-            mode: "no-cors" // ✅ CORS workaround for Apps Script
+            mode: "no-cors"
           }).catch(err => {
             console.warn("Failed to send to Google Sheets:", err);
           });
